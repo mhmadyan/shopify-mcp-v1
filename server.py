@@ -931,6 +931,83 @@ async def shopify_create_webhook(params: CreateWebhookInput) -> str:
 
 
 # ---------------------------------------------------------------------------
+# REST PROXY — for Custom GPT Actions and other outbound clients
+# ---------------------------------------------------------------------------
+# Mounts a fixed-token-free REST proxy at /proxy/<rest_of_admin_api_path>.
+# The proxy reuses the TokenManager (auto-refresh + 401 retry) and only
+# requires the caller to send a static X-API-Key header. The Shopify token
+# never leaves this server. Set SHOPIFY_PROXY_API_KEY to enable.
+
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
+SHOPIFY_PROXY_API_KEY = os.environ.get("SHOPIFY_PROXY_API_KEY", "")
+
+
+@mcp.custom_route("/proxy/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def shopify_rest_proxy(request: Request) -> Response:
+    """
+    Forward arbitrary Shopify Admin API calls.
+
+      Client request:
+        <METHOD> /proxy/<path>?<query>
+        X-API-Key: <SHOPIFY_PROXY_API_KEY>
+
+      Server forwards to:
+        https://<store>.myshopify.com/admin/api/<version>/<path>?<query>
+        X-Shopify-Access-Token: <auto-refreshed token>
+
+    Examples:
+      GET  /proxy/products.json?limit=50&fields=id,title,tags
+      PUT  /proxy/products/123456789.json   (body: { "product": { ... } })
+    """
+    if not SHOPIFY_PROXY_API_KEY:
+        return JSONResponse({"error": "Proxy disabled: SHOPIFY_PROXY_API_KEY not set"}, status_code=503)
+
+    if request.headers.get("x-api-key") != SHOPIFY_PROXY_API_KEY:
+        return JSONResponse({"error": "Invalid or missing X-API-Key"}, status_code=401)
+
+    path = request.path_params["path"]
+    if not path:
+        return JSONResponse({"error": "Missing Shopify path, e.g. /proxy/products.json"}, status_code=400)
+
+    body: Optional[dict] = None
+    if request.method not in ("GET", "HEAD") and (await request.body()):
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Body must be valid JSON"}, status_code=400)
+
+    try:
+        data = await _request(
+            request.method,
+            path,
+            params=dict(request.query_params),
+            body=body,
+        )
+        return JSONResponse(data)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            {"error": f"Shopify {e.response.status_code}", "detail": e.response.text},
+            status_code=e.response.status_code,
+        )
+    except Exception as e:
+        logger.exception("Proxy error")
+        return JSONResponse({"error": str(e)}, status_code=502)
+
+
+@mcp.custom_route("/proxy-health", methods=["GET"])
+async def proxy_health(request: Request) -> Response:
+    return JSONResponse({
+        "ok": True,
+        "store": SHOPIFY_STORE,
+        "api_version": API_VERSION,
+        "auth_mode": "client_credentials" if (SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET) else "static",
+        "proxy_enabled": bool(SHOPIFY_PROXY_API_KEY),
+    })
+
+
+# ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
