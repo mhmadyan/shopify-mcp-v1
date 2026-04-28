@@ -82,7 +82,7 @@ Open `.env` and fill in your values:
 
 ```env
 SHOPIFY_STORE=your-store-name
-SHOPIFY_ACCESS_TOKEN=shpat_xxxxxxxxxxxxxxxxxxxx
+SHOPIFY_ACCESS_TOKEN=<SHOPIFY_ACCESS_TOKEN>
 ```
 
 > Only these two are required. Leave everything else as-is.
@@ -125,7 +125,7 @@ In your Railway project, go to **Variables** and add the following:
 | Variable | Value |
 |---|---|
 | `SHOPIFY_STORE` | `your-store-name` |
-| `SHOPIFY_ACCESS_TOKEN` | `shpat_xxxxxxxxxxxxxxxxxxxx` |
+| `SHOPIFY_ACCESS_TOKEN` | `<SHOPIFY_ACCESS_TOKEN>` |
 | `PORT` | `8000` |
 | `MCP_TRANSPORT` | `streamable-http` |
 
@@ -241,7 +241,8 @@ When adding the integration in Claude.ai, paste your `BEARER_TOKEN` value into t
 | `SHOPIFY_ACCESS_TOKEN` | ✅* | — | Admin API token from Custom App (`shpat_...`) |
 | `SHOPIFY_CLIENT_ID` | No | — | OAuth client ID (advanced, replaces static token) |
 | `SHOPIFY_CLIENT_SECRET` | No | — | OAuth client secret (advanced) |
-| `SHOPIFY_API_VERSION` | No | `2024-10` | Shopify Admin API version |
+| `SHOPIFY_API_VERSION` | No | `2026-04` | Shopify Admin API version |
+| `SHOPIFY_PROXY_API_KEY` | No | — | Static `X-API-Key` for `/proxy/*` REST access used by Custom GPT Actions |
 | `PORT` | No | `8000` | Port the server listens on |
 | `MCP_TRANSPORT` | No | `streamable-http` | Transport protocol |
 | `BEARER_TOKEN` | No | — | Protects your MCP endpoint (set in both Railway and Claude) |
